@@ -82,6 +82,26 @@ Deno.serve(async (req) => {
     const POS = Deno.env.get('MP_POS_ID') || 'MIMACAJA1'
 
     switch (accion) {
+      // Provincias y ciudades con los nombres EXACTOS que acepta Mercado Pago (los de Mercado Libre)
+      case 'ciudades': {
+        const ML = 'https://api.mercadolibre.com/classified_locations'
+        const norm = (t: string) => (t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
+        const traer = async (url: string) => {
+          const r = await fetch(url, { signal: AbortSignal.timeout(12000) })
+          if (!r.ok) throw new Error(`No se pudo traer la lista de ciudades (${r.status})`)
+          return r.json()
+        }
+        const pais = await traer(`${ML}/countries/AR`)
+        const provincias = (pais.states ?? []).map((s: any) => s.name).sort()
+        const buscada = norm(p.provincia)
+        const estado = (pais.states ?? []).find((s: any) => norm(s.name) === buscada)
+          ?? (pais.states ?? []).find((s: any) => norm(s.name).includes(buscada) || buscada.includes(norm(s.name)))
+        if (!estado) return respuesta({ provincias, provincia: null, ciudades: [] })
+        const detalle = await traer(`${ML}/states/${estado.id}`)
+        const ciudades = (detalle.cities ?? []).map((c: any) => c.name).sort((a: string, b: string) => a.localeCompare(b, 'es'))
+        return respuesta({ provincias, provincia: estado.name, ciudades })
+      }
+
       case 'ping':
         return respuesta({ ok: true, token: Boolean(Deno.env.get('MP_ACCESS_TOKEN')) })
 
