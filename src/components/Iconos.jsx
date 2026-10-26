@@ -24,4 +24,10 @@ export const IconoSubir = p => <Svg {...p}><path d="M7 17L17 7" /><path d="M8 7h
 export const IconoSalir = p => <Svg {...p}><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" /><path d="M10 17l5-5-5-5" /><path d="M15 12H4" /></Svg>
 export const IconoVolver = p => <Svg {...p}><path d="M15 18l-6-6 6-6" /></Svg>
 export const IconoEnviar = p => <Svg {...p}><path d="M22 2L11 13" /><path d="M22 2l-7 20-4-9-9-4 20-7z" /></Svg>
+export const IconoRecibo = p => <Svg {...p}><path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z" /><path d="M9 8h6" /><path d="M9 12h6" /></Svg>
+export const IconoLibreta = p => <Svg {...p}><path d="M5 3h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5z" /><path d="M9 3v18" /><path d="M12 8h4" /><path d="M12 12h4" /></Svg>
+export const IconoGrafico = p => <Svg {...p}><path d="M4 20V10" /><path d="M10 20V4" /><path d="M16 20v-7" /><path d="M22 20H2" /></Svg>
+export const IconoMenu = p => <Svg {...p}><circle cx="5" cy="12" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="19" cy="12" r="1.5" /></Svg>
+export const IconoRayo = p => <Svg {...p}><path d="M13 2L4 14h7l-1 8 9-12h-7z" /></Svg>
+export const IconoArchivo = p => <Svg {...p}><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><path d="M14 3v6h6" /><path d="M12 18v-6" /><path d="M9 15l3 3 3-3" /></Svg>
 export const IconoBuscar = p => <Svg {...p}><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></Svg>

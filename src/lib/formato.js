@@ -1,10 +1,12 @@
 export const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
 
 export const METODOS = [
-  { id: 'efectivo', nombre: 'Efectivo' },
-  { id: 'transferencia', nombre: 'Transferencia' },
-  { id: 'debito', nombre: 'Débito' }
+  { id: 'efectivo', nombre: 'Efectivo', corto: 'Efectivo' },
+  { id: 'transferencia', nombre: 'Transferencia', corto: 'Transfer.' },
+  { id: 'debito', nombre: 'Débito', corto: 'Débito' },
+  { id: 'fiado', nombre: 'Fiado', corto: 'Fiado' }
 ]
+export const nombreMetodo = id => METODOS.find(m => m.id === id)?.nombre || id
 
 // $ 1.234,50
 export function pesos(n) {
@@ -18,6 +20,21 @@ export function inicioDeHoy() {
   return d.toISOString()
 }
 
+// 'YYYY-MM-DD' de hoy en hora local (para inputs type=date)
+export function hoyTexto(d = new Date()) {
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const dia = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${m}-${dia}`
+}
+
+// Desde y hasta (ISO) de un día 'YYYY-MM-DD' en hora local
+export function rangoDia(texto) {
+  const [a, m, d] = texto.split('-').map(Number)
+  const desde = new Date(a, m - 1, d, 0, 0, 0, 0)
+  const hasta = new Date(a, m - 1, d + 1, 0, 0, 0, 0)
+  return [desde.toISOString(), hasta.toISOString()]
+}
+
 export function fechaLarga(d = new Date()) {
   const txt = d.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
   return txt.charAt(0).toUpperCase() + txt.slice(1)
@@ -25,6 +42,10 @@ export function fechaLarga(d = new Date()) {
 
 export function fechaCorta(iso) {
   return new Date(iso).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+}
+
+export function hora(iso) {
+  return new Date(iso).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
 }
 
 // Para buscar sin importar mayúsculas ni tildes
@@ -54,4 +75,14 @@ export function soloNumeros(txt) {
 
 export function iniciales(nombre) {
   return (nombre || '?').split(' ').filter(Boolean).slice(0, 2).map(p => p[0].toUpperCase()).join('')
+}
+
+// Convierte "1.234,50", "$ 1500", 1500 → número
+export function aNumero(v) {
+  if (typeof v === 'number') return v
+  let s = String(v ?? '').replace(/[$\s]/g, '')
+  if (!s) return NaN
+  if (s.includes(',') && s.includes('.')) s = s.replace(/\./g, '').replace(',', '.')
+  else if (s.includes(',')) s = s.replace(',', '.')
+  return Number(s)
 }

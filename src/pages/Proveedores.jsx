@@ -4,11 +4,13 @@ import { supabase } from '../lib/supabase.js'
 import { traerProductos, traerProveedores, mensajeError } from '../lib/datos.js'
 import { DIAS, bajoStock, fechaCorta, iniciales, soloNumeros } from '../lib/formato.js'
 import { useAviso } from '../components/Toast.jsx'
+import { usePerfil } from '../components/Perfil.jsx'
 import Modal from '../components/Modal.jsx'
 import { IconoMas } from '../components/Iconos.jsx'
 
 export default function Proveedores() {
   const aviso = useAviso()
+  const { nombreDe } = usePerfil()
   const [proveedores, setProveedores] = useState(null)
   const [productos, setProductos] = useState([])
   const [pendientes, setPendientes] = useState([])
@@ -20,7 +22,7 @@ export default function Proveedores() {
         traerProveedores(),
         traerProductos(),
         supabase.from('pedidos')
-          .select('id, creado_en, proveedores(nombre), pedido_items(nombre, cantidad)')
+          .select('id, creado_en, usuario_id, proveedores(nombre), pedido_items(nombre, cantidad)')
           .eq('estado', 'pendiente').order('creado_en', { ascending: false })
       ])
       if (ped.error) throw ped.error
@@ -55,7 +57,7 @@ export default function Proveedores() {
               <div className="tarjeta tarjeta-pad" key={ped.id} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div className="col" style={{ display: 'flex', flexDirection: 'column' }}>
                   <strong>{ped.proveedores?.nombre || 'Proveedor borrado'}</strong>
-                  <span className="detalle" style={{ color: 'var(--apagado)', fontSize: 13 }}>Pedido el {fechaCorta(ped.creado_en)}</span>
+                  <span className="detalle" style={{ color: 'var(--apagado)', fontSize: 13 }}>Pedido el {fechaCorta(ped.creado_en)}{ped.usuario_id ? ` por ${nombreDe(ped.usuario_id)}` : ''}</span>
                 </div>
                 <div style={{ fontSize: 14 }}>
                   {ped.pedido_items.map(i => `${i.cantidad} × ${i.nombre}`).join(' · ')}

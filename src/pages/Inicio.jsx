@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
-import { traerProductos, mensajeError } from '../lib/datos.js'
+import { traerProductos, traerTodo, mensajeError } from '../lib/datos.js'
 import { DIAS, METODOS, bajoStock, estadoStock, fechaLarga, inicioDeHoy, pesos } from '../lib/formato.js'
+import { usePerfil } from '../components/Perfil.jsx'
 import { IconoEscanear } from '../components/Iconos.jsx'
 
 export default function Inicio() {
+  const { yo, perfiles } = usePerfil()
   const [datos, setDatos] = useState(null)
   const [error, setError] = useState('')
 
@@ -14,26 +16,29 @@ export default function Inicio() {
       try {
         const hoy = inicioDeHoy()
         const [ventas, items, productos, proveedores] = await Promise.all([
-          supabase.from('ventas').select('total, metodo_pago').gte('fecha', hoy),
-          supabase.from('venta_items').select('nombre, cantidad, ventas!inner(fecha)').gte('ventas.fecha', hoy),
+          traerTodo(() => supabase.from('ventas').select('total, metodo_pago, usuario_id')
+            .gte('fecha', hoy).eq('anulada', false)),
+          traerTodo(() => supabase.from('venta_items').select('nombre, cantidad, ventas!inner(fecha, anulada)')
+            .gte('ventas.fecha', hoy).eq('ventas.anulada', false)),
           traerProductos(),
           supabase.from('proveedores').select('id, nombre, dia_visita')
         ])
-        if (ventas.error) throw ventas.error
-        if (items.error) throw items.error
         if (proveedores.error) throw proveedores.error
 
-        // total y por forma de pago
-        const porMetodo = { efectivo: 0, transferencia: 0, debito: 0 }
+        // total, por forma de pago y por persona
+        const porMetodo = Object.fromEntries(METODOS.map(m => [m.id, 0]))
+        const porPersona = {}
         let total = 0
-        for (const v of ventas.data) {
-          total += Number(v.total)
-          porMetodo[v.metodo_pago] += Number(v.total)
+        for (const v of ventas) {
+          const t = Number(v.total)
+          total += t
+          porMetodo[v.metodo_pago] = (porMetodo[v.metodo_pago] || 0) + t
+          porPersona[v.usuario_id] = (porPersona[v.usuario_id] || 0) + t
         }
 
         // producto más vendido del día
         const cuenta = {}
-        for (const it of items.data) cuenta[it.nombre] = (cuenta[it.nombre] || 0) + it.cantidad
+        for (const it of items) cuenta[it.nombre] = (cuenta[it.nombre] || 0) + it.cantidad
         const masVendido = Object.entries(cuenta).sort((a, b) => b[1] - a[1])[0]
 
         // proveedor que pasa mañana (o hoy)
@@ -43,8 +48,9 @@ export default function Inicio() {
 
         setDatos({
           total,
-          cantidadVentas: ventas.data.length,
+          cantidadVentas: ventas.length,
           porMetodo,
+          porPersona,
           masVendido,
           proximo: manana ? { nombre: manana.nombre, cuando: 'Pasa mañana' }
             : deHoy ? { nombre: deHoy.nombre, cuando: 'Pasa hoy' } : null,
@@ -58,12 +64,14 @@ export default function Inicio() {
     cargar()
   }, [])
 
+  const metodosVisibles = datos ? METODOS.filter(m => m.id !== 'fiado' || datos.porMetodo.fiado > 0) : []
+
   return (
     <div className="pagina">
       <div className="encabezado">
         <div>
           <div className="sub">{fechaLarga()}</div>
-          <h1 className="titulo-marca">Despensa Mi-Ma</h1>
+          <h1 className="titulo-marca">Hola, {yo.nombre}</h1>
         </div>
       </div>
 
@@ -74,16 +82,23 @@ export default function Inicio() {
         <div className="inicio-grid">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
             <section className="ventas-hoy" aria-label="Ventas de hoy">
-              <span className="chico">Ventas de hoy</span>
+              <span className="chico">Ventas de hoy · los dos juntos</span>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
                 <span className="monto">{pesos(datos.total)}</span>
                 <span className="chico">{datos.cantidadVentas} {datos.cantidadVentas === 1 ? 'venta' : 'ventas'}</span>
               </div>
-              <div className="metodos">
-                {METODOS.map(m => (
-                  <div key={m.id}><span>{m.nombre}</span><span>{pesos(datos.porMetodo[m.id])}</span></div>
+              <div className="metodos" style={{ gridTemplateColumns: `repeat(${metodosVisibles.length}, minmax(0, 1fr))` }}>
+                {metodosVisibles.map(m => (
+                  <div key={m.id}><span>{m.corto}</span><span>{pesos(datos.porMetodo[m.id])}</span></div>
                 ))}
               </div>
+              {perfiles.length > 1 && (
+                <div className="metodos" style={{ gridTemplateColumns: `repeat(${perfiles.length}, minmax(0, 1fr))` }}>
+                  {perfiles.map(p => (
+                    <div key={p.id}><span>Vendió {p.nombre}</span><span>{pesos(datos.porPersona[p.id])}</span></div>
+                  ))}
+                </div>
+              )}
             </section>
 
             <Link to="/caja" className="btn btn-primario btn-grande"><IconoEscanear />Nueva venta</Link>
@@ -98,6 +113,7 @@ export default function Inicio() {
                 <strong>{datos.proximo ? datos.proximo.nombre : 'Nadie pasa mañana'}</strong>
               </div>
             </div>
+            <Link to="/ventas" className="btn">Ver ventas y cerrar caja</Link>
           </div>
 
           <section style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

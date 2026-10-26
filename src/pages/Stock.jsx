@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { traerCategorias, traerProductos, traerProveedores, mensajeError } from '../lib/datos.js'
-import { bajoStock, estadoStock, normalizar, pesos } from '../lib/formato.js'
+import { aNumero, bajoStock, estadoStock, normalizar, pesos } from '../lib/formato.js'
 import { useAviso } from '../components/Toast.jsx'
+import { usePerfil } from '../components/Perfil.jsx'
 import Modal from '../components/Modal.jsx'
 import Escaner from '../components/Escaner.jsx'
-import { IconoBuscar, IconoEscanear, IconoMas, IconoSubir } from '../components/Iconos.jsx'
+import { IconoArchivo, IconoBuscar, IconoEscanear, IconoMas, IconoRayo, IconoSubir } from '../components/Iconos.jsx'
 
 export default function Stock() {
   const aviso = useAviso()
@@ -18,6 +19,7 @@ export default function Stock() {
   const [filtro, setFiltro] = useState(params.get('filtro') === 'bajo' ? 'bajo' : 'todos')
   const [editando, setEditando] = useState(null) // producto, 'nuevo' o null
   const [precios, setPrecios] = useState(false)
+  const [importar, setImportar] = useState(false)
 
   async function cargar() {
     try {
@@ -47,7 +49,8 @@ export default function Stock() {
           <h1>Stock</h1>
           {productos && <div className="sub">{productos.length} productos · {cantBajo} por reponer</div>}
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="btn" onClick={() => setImportar(true)}><IconoArchivo tam={18} />Importar Excel</button>
           <button className="btn" onClick={() => setPrecios(true)}><IconoSubir tam={18} />Subir precios</button>
           <button className="btn btn-primario solo-pc" onClick={() => setEditando('nuevo')}><IconoMas tam={18} />Nuevo producto</button>
         </div>
@@ -79,7 +82,9 @@ export default function Stock() {
           return (
             <button className="fila fila-stock" key={p.id} onClick={() => setEditando(p)}>
               <span className="col">
-                <span className="nombre">{p.nombre}</span>
+                <span className="nombre" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {p.nombre}{p.acceso_rapido && <span title="Acceso rápido en la caja" style={{ color: 'var(--primario)', display: 'inline-flex' }}><IconoRayo tam={15} /></span>}
+                </span>
                 <span className="detalle">{[p.categorias?.nombre, p.codigo_barras].filter(Boolean).join(' · ') || 'Sin categoría'}</span>
               </span>
               <span className="precio">{pesos(p.precio_venta)}</span>
@@ -101,6 +106,10 @@ export default function Stock() {
           onGuardado={() => { setEditando(null); cargar() }}
         />
       )}
+      {importar && (
+        <ImportarProductos productos={productos || []} categorias={categorias} proveedores={proveedores}
+          onCerrar={() => setImportar(false)} onListo={() => { setImportar(false); cargar() }} />
+      )}
       {precios && (
         <SubirPrecios categorias={categorias} proveedores={proveedores}
           onCerrar={() => setPrecios(false)} onListo={() => { setPrecios(false); cargar() }} />
@@ -120,8 +129,10 @@ function ProductoForm({ producto, categorias, proveedores, onCerrar, onGuardado 
     precio_venta: producto?.precio_venta ?? '',
     stock: producto?.stock ?? 0,
     stock_minimo: producto?.stock_minimo ?? 5,
+    acceso_rapido: producto?.acceso_rapido ?? false,
     sumar: ''
   }))
+  const { nombreDe } = usePerfil()
   const [camara, setCamara] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const cambiar = campo => e => setF(v => ({ ...v, [campo]: e.target.value }))
@@ -140,7 +151,8 @@ function ProductoForm({ producto, categorias, proveedores, onCerrar, onGuardado 
       precio_costo: Number(f.precio_costo) || 0,
       precio_venta: Number(f.precio_venta) || 0,
       stock: (Number(f.stock) || 0) + (Number(f.sumar) || 0),
-      stock_minimo: Number(f.stock_minimo) || 0
+      stock_minimo: Number(f.stock_minimo) || 0,
+      acceso_rapido: f.acceso_rapido
     }
     const { data, error } = producto
       ? await supabase.from('productos').update(datos).eq('id', producto.id).select().single()
@@ -220,6 +232,15 @@ function ProductoForm({ producto, categorias, proveedores, onCerrar, onGuardado 
           </div>
         )}
 
+        <label className="ancho" style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 700, minHeight: 44 }}>
+          <input type="checkbox" style={{ width: 22, height: 22, accentColor: 'var(--primario)' }}
+            checked={f.acceso_rapido} onChange={e => setF(v => ({ ...v, acceso_rapido: e.target.checked }))} />
+          Acceso rápido en la caja (botón para venderlo con un toque)
+        </label>
+        {producto?.creado_por && (
+          <div className="ancho" style={{ fontSize: 13, color: 'var(--apagado)' }}>Lo cargó {nombreDe(producto.creado_por)}</div>
+        )}
+
         <div className="acciones ancho" style={{ justifyContent: 'space-between' }}>
           {producto ? <button type="button" className="btn btn-peligro" onClick={darDeBaja}>Dar de baja</button> : <span />}
           <div style={{ display: 'flex', gap: 8 }}>
@@ -286,6 +307,182 @@ function SubirPrecios({ categorias, proveedores, onCerrar, onListo }) {
           <button className="btn btn-primario" disabled={enviando}>{enviando ? 'Aplicando…' : 'Aplicar'}</button>
         </div>
       </form>
+    </Modal>
+  )
+}
+
+// ---------- Importar productos desde Excel o CSV ----------
+const COLUMNAS = {
+  nombre: ['nombre', 'producto', 'descripcion', 'articulo', 'detalle'],
+  codigo_barras: ['codigo', 'codigo de barras', 'codigo_barras', 'cod barras', 'cod. barras', 'ean', 'barras'],
+  categoria: ['categoria', 'rubro', 'tipo'],
+  proveedor: ['proveedor', 'distribuidora', 'distribuidor'],
+  precio_costo: ['costo', 'precio costo', 'precio de costo', 'precio_costo', 'compra', 'precio compra'],
+  precio_venta: ['precio', 'precio venta', 'precio de venta', 'precio_venta', 'venta', 'pvp'],
+  stock: ['stock', 'cantidad', 'existencia', 'unidades'],
+  stock_minimo: ['minimo', 'stock minimo', 'stock_minimo', 'avisar', 'avisar cuando queden']
+}
+
+function campoDe(encabezado) {
+  const n = normalizar(encabezado).trim().replace(/\s+/g, ' ')
+  for (const [campo, alias] of Object.entries(COLUMNAS)) if (alias.includes(n)) return campo
+  return null
+}
+
+function textoCelda(v) {
+  if (v === null || v === undefined) return ''
+  if (typeof v === 'number') return String(Math.round(v) === v ? v : v)
+  return String(v).trim()
+}
+
+function ImportarProductos({ productos, categorias, proveedores, onCerrar, onListo }) {
+  const aviso = useAviso()
+  const [plan, setPlan] = useState(null)   // { nuevos, cambios, ignoradas, columnas, catsNuevas, provsNuevos }
+  const [leyendo, setLeyendo] = useState(false)
+  const [importando, setImportando] = useState(false)
+
+  async function bajarPlantilla() {
+    const XLSX = await import('xlsx')
+    const ws = XLSX.utils.json_to_sheet([
+      { nombre: 'Gaseosa cola 500 ml', codigo_barras: '7790000000011', categoria: 'Bebidas', proveedor: 'Distribuidora A', precio_costo: 1200, precio_venta: 1800, stock: 24, stock_minimo: 12 },
+      { nombre: 'Lavandina 1 L', codigo_barras: '', categoria: 'Limpieza', proveedor: '', precio_costo: 600, precio_venta: 900, stock: 10, stock_minimo: 4 }
+    ])
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Productos')
+    XLSX.writeFile(wb, 'plantilla-productos-mi-ma.xlsx')
+  }
+
+  async function leer(e) {
+    const archivo = e.target.files?.[0]
+    if (!archivo) return
+    setLeyendo(true)
+    try {
+      const XLSX = await import('xlsx')
+      const libro = XLSX.read(await archivo.arrayBuffer(), { type: 'array' })
+      const hoja = libro.Sheets[libro.SheetNames[0]]
+      const filas = XLSX.utils.sheet_to_json(hoja, { defval: '', raw: true })
+      if (filas.length === 0) throw new Error('El archivo está vacío')
+
+      // qué columna del Excel es cada dato
+      const mapa = {}
+      for (const enc of Object.keys(filas[0])) {
+        const c = campoDe(enc)
+        if (c && !mapa[c]) mapa[c] = enc
+      }
+      if (!mapa.nombre) throw new Error('No encontré la columna "nombre". Usá la plantilla.')
+
+      const porCodigo = new Map(productos.filter(p => p.codigo_barras).map(p => [p.codigo_barras, p]))
+      const porNombre = new Map(productos.map(p => [normalizar(p.nombre), p]))
+      const catExiste = new Set(categorias.map(c => normalizar(c.nombre)))
+      const provExiste = new Set(proveedores.map(p => normalizar(p.nombre)))
+      const catsNuevas = new Map(), provsNuevos = new Map()
+      const nuevos = [], cambios = []
+      let ignoradas = 0
+
+      for (const fila of filas) {
+        const r = {}
+        for (const [campo, enc] of Object.entries(mapa)) r[campo] = fila[enc]
+        const nombre = textoCelda(r.nombre)
+        if (!nombre) { ignoradas++; continue }
+        const codigo = textoCelda(r.codigo_barras)
+        const datos = { nombre }
+        if (mapa.codigo_barras && codigo) datos.codigo_barras = codigo
+        for (const num of ['precio_costo', 'precio_venta', 'stock', 'stock_minimo']) {
+          if (!mapa[num] || textoCelda(r[num]) === '') continue
+          const n = aNumero(r[num])
+          if (!Number.isNaN(n)) datos[num] = num.startsWith('stock') ? Math.round(n) : n
+        }
+        const cat = textoCelda(r.categoria), prov = textoCelda(r.proveedor)
+        if (cat) { datos._categoria = cat; if (!catExiste.has(normalizar(cat))) catsNuevas.set(normalizar(cat), cat) }
+        if (prov) { datos._proveedor = prov; if (!provExiste.has(normalizar(prov))) provsNuevos.set(normalizar(prov), prov) }
+
+        const existente = (codigo && porCodigo.get(codigo)) || porNombre.get(normalizar(nombre))
+        if (existente) cambios.push({ id: existente.id, ...datos })
+        else nuevos.push(datos)
+      }
+      setPlan({ nuevos, cambios, ignoradas, columnas: Object.keys(mapa), catsNuevas: [...catsNuevas.values()], provsNuevos: [...provsNuevos.values()] })
+    } catch (err) {
+      aviso(err.message || 'No pude leer el archivo', 'error')
+      setPlan(null)
+    } finally {
+      setLeyendo(false)
+      e.target.value = ''
+    }
+  }
+
+  async function importar() {
+    setImportando(true)
+    try {
+      // 1) categorías y proveedores que no existían
+      let cats = [...categorias], provs = [...proveedores]
+      if (plan.catsNuevas.length) {
+        const { data, error } = await supabase.from('categorias').insert(plan.catsNuevas.map(nombre => ({ nombre }))).select()
+        if (error) throw error
+        cats = cats.concat(data)
+      }
+      if (plan.provsNuevos.length) {
+        const { data, error } = await supabase.from('proveedores').insert(plan.provsNuevos.map(nombre => ({ nombre }))).select()
+        if (error) throw error
+        provs = provs.concat(data)
+      }
+      const idCat = n => cats.find(c => normalizar(c.nombre) === normalizar(n))?.id ?? null
+      const idProv = n => provs.find(p => normalizar(p.nombre) === normalizar(n))?.id ?? null
+      const armar = ({ _categoria, _proveedor, id, ...resto }) => ({
+        ...resto,
+        ...(_categoria !== undefined && { categoria_id: idCat(_categoria) }),
+        ...(_proveedor !== undefined && { proveedor_id: idProv(_proveedor) })
+      })
+
+      // 2) productos nuevos, de a 200
+      for (let i = 0; i < plan.nuevos.length; i += 200) {
+        // defaultToNull: false → si una fila no trae un dato, usa el valor por defecto (ej. stock 0)
+        const { error } = await supabase.from('productos').insert(plan.nuevos.slice(i, i + 200).map(armar), { defaultToNull: false })
+        if (error) throw error
+      }
+      // 3) productos que ya existían: solo se cambian las columnas que trae el Excel
+      for (let i = 0; i < plan.cambios.length; i += 10) {
+        const tanda = plan.cambios.slice(i, i + 10)
+        const res = await Promise.all(tanda.map(c => supabase.from('productos').update(armar(c)).eq('id', c.id)))
+        const conError = res.find(r => r.error)
+        if (conError) throw conError.error
+      }
+      aviso(`Listo: ${plan.nuevos.length} nuevos y ${plan.cambios.length} actualizados`, 'ok')
+      onListo()
+    } catch (e) {
+      aviso(mensajeError(e), 'error')
+    } finally {
+      setImportando(false)
+    }
+  }
+
+  return (
+    <Modal titulo="Importar productos" onCerrar={onCerrar}>
+      <p style={{ margin: 0, color: 'var(--apagado)', fontSize: 14 }}>
+        Subí un Excel (.xlsx) o CSV con una fila por producto. Si un producto ya existe (mismo código de barras o mismo nombre), se actualiza; si no, se crea.
+      </p>
+      <button className="btn" onClick={bajarPlantilla}>Bajar plantilla de ejemplo</button>
+      <label className="btn btn-primario" style={{ cursor: 'pointer' }}>
+        {leyendo ? 'Leyendo…' : 'Elegir archivo'}
+        <input type="file" accept=".xlsx,.xls,.csv" onChange={leer} style={{ display: 'none' }} />
+      </label>
+
+      {plan && (
+        <div className="tarjeta lista">
+          <div className="fila"><span>Productos nuevos</span><strong>{plan.nuevos.length}</strong></div>
+          <div className="fila"><span>Ya existían (se actualizan)</span><strong>{plan.cambios.length}</strong></div>
+          {plan.ignoradas > 0 && <div className="fila"><span>Filas sin nombre (se saltean)</span><strong>{plan.ignoradas}</strong></div>}
+          {plan.catsNuevas.length > 0 && <div className="fila"><span>Categorías nuevas</span><span className="detalle">{plan.catsNuevas.join(', ')}</span></div>}
+          {plan.provsNuevos.length > 0 && <div className="fila"><span>Proveedores nuevos</span><span className="detalle">{plan.provsNuevos.join(', ')}</span></div>}
+          <div className="fila"><span className="detalle">Columnas que reconocí: {plan.columnas.join(', ')}</span></div>
+        </div>
+      )}
+
+      <div className="acciones">
+        <button className="btn" onClick={onCerrar}>Cancelar</button>
+        <button className="btn btn-primario" disabled={!plan || importando || (plan.nuevos.length + plan.cambios.length === 0)} onClick={importar}>
+          {importando ? 'Importando…' : 'Importar'}
+        </button>
+      </div>
     </Modal>
   )
 }

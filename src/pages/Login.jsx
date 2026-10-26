@@ -14,7 +14,12 @@ export default function Login() {
     setCargando(true)
     const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password: clave })
     setCargando(false)
-       if (error) setError(error.message)
+    if (!error) return
+    const m = error.message || ''
+    if (m.includes('Invalid login credentials')) setError('Email o contraseña incorrectos')
+    else if (m.includes('Email not confirmed')) setError('El usuario no está confirmado. En Supabase marcalo como confirmado (Auto Confirm).')
+    else if (m.toLowerCase().includes('api key')) setError('La key de Supabase del .env no es válida')
+    else setError(m)
   }
 
   return (

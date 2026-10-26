@@ -2,13 +2,17 @@ import { useEffect, useState } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { configurado, supabase } from './lib/supabase.js'
 import { ToastProvider } from './components/Toast.jsx'
+import { PerfilProvider } from './components/Perfil.jsx'
 import Layout from './components/Layout.jsx'
 import Login from './pages/Login.jsx'
 import Inicio from './pages/Inicio.jsx'
 import Caja from './pages/Caja.jsx'
+import Ventas from './pages/Ventas.jsx'
 import Stock from './pages/Stock.jsx'
 import Proveedores from './pages/Proveedores.jsx'
 import Pedido from './pages/Pedido.jsx'
+import Fiado from './pages/Fiado.jsx'
+import Reportes from './pages/Reportes.jsx'
 
 export default function App() {
   const [sesion, setSesion] = useState(undefined) // undefined = todavía cargando
@@ -36,16 +40,21 @@ export default function App() {
 
   return (
     <ToastProvider>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<Inicio />} />
-          <Route path="/caja" element={<Caja />} />
-          <Route path="/stock" element={<Stock />} />
-          <Route path="/proveedores" element={<Proveedores />} />
-          <Route path="/pedido/:id" element={<Pedido />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Layout>
+      <PerfilProvider key={sesion.user.id} usuario={sesion.user}>
+        <Layout>
+          <Routes>
+            <Route path="/" element={<Inicio />} />
+            <Route path="/caja" element={<Caja />} />
+            <Route path="/ventas" element={<Ventas />} />
+            <Route path="/stock" element={<Stock />} />
+            <Route path="/proveedores" element={<Proveedores />} />
+            <Route path="/pedido/:id" element={<Pedido />} />
+            <Route path="/fiado" element={<Fiado />} />
+            <Route path="/reportes" element={<Reportes />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Layout>
+      </PerfilProvider>
     </ToastProvider>
   )
 }

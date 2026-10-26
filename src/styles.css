@@ -72,15 +72,16 @@ button { cursor: pointer; }
 .nav-abajo {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
   background: var(--superficie); border-top: 1px solid var(--borde);
-  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
-  padding: 6px 6px max(10px, env(safe-area-inset-bottom));
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+  padding: 6px 4px max(10px, env(safe-area-inset-bottom));
 }
-.nav-abajo a {
+.nav-abajo a, .nav-abajo button {
   display: flex; flex-direction: column; align-items: center; gap: 3px;
   padding: 6px 0; text-decoration: none; color: var(--apagado);
-  font-size: 12px; font-weight: 700;
+  font-size: 12px; font-weight: 700; background: none; border: none;
 }
-.nav-abajo a.active { color: var(--primario); font-weight: 800; }
+.nav-abajo a.active, .nav-abajo button.active { color: var(--primario); font-weight: 800; }
+.saludo-cel { color: #fff; font-weight: 800; font-size: 15px; }
 
 @media (min-width: 900px) {
   .barra-top, .nav-abajo { display: none; }
@@ -88,8 +89,9 @@ button { cursor: pointer; }
     display: flex; flex-direction: column; gap: 22px;
     width: 250px; flex: 0 0 250px;
     background: var(--naranja); color: #fff;
-    padding: 24px 16px; position: sticky; top: 0; height: 100dvh;
+    padding: 24px 16px; position: sticky; top: 0; height: 100dvh; overflow-y: auto;
   }
+  .lateral .saludo { text-align: center; font-weight: 800; font-size: 16px; margin-top: -10px; }
   .lateral img { width: 170px; display: block; margin: 4px auto 8px; }
   .lateral nav { display: flex; flex-direction: column; gap: 6px; }
   .lateral nav a {
@@ -250,6 +252,43 @@ button.fila:hover { background: #FAFAFB; }
   padding: 14px 16px; font-size: 15px; line-height: 1.5; white-space: pre-line;
 }
 .input-cant { width: 64px; height: 44px; text-align: center; font-weight: 800; border-radius: 10px; border: 1px solid var(--borde-fuerte); }
+
+/* ---------- accesos rápidos (caja) ---------- */
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+@media (min-width: 600px) { .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.tile {
+  min-height: 84px; border-radius: 14px; border: 1px solid var(--borde); background: var(--superficie);
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between;
+  padding: 10px; text-align: left; gap: 6px;
+}
+.tile:hover { border-color: var(--primario); }
+.tile .nombre { font-size: 14px; font-weight: 700; line-height: 1.2; }
+.tile.varios { border-style: dashed; border-color: var(--primario); color: var(--primario); }
+.pago-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.pago-4 button { font-size: 14px; }
+
+/* ---------- ventas / reportes ---------- */
+.kpis { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 900px) { .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.kpi { padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+.kpi strong { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+.kpi.destacado { background: var(--primario); border-color: var(--primario); color: #fff; }
+.kpi.destacado .etiqueta { color: #FFE9DE; }
+.tabla-wrap { overflow-x: auto; }
+.tabla { width: 100%; border-collapse: collapse; font-size: 14px; }
+.tabla th { text-align: left; font-size: 12px; color: var(--apagado); font-weight: 700; padding: 10px 12px; border-bottom: 1px solid #EEF0F3; white-space: nowrap; }
+.tabla td { padding: 11px 12px; border-bottom: 1px solid #EEF0F3; white-space: nowrap; }
+.tabla tr:last-child td { border-bottom: none; }
+.tabla .num { text-align: right; font-variant-numeric: tabular-nums; }
+.tabla tr.total td { font-weight: 800; background: #FAFAFB; }
+.barras { display: flex; align-items: flex-end; gap: 4px; height: 160px; padding: 10px 4px 0; }
+.barras .barra { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; height: 100%; min-width: 0; }
+.barras .barra div { width: 100%; max-width: 38px; background: var(--naranja); border-radius: 6px 6px 0 0; min-height: 2px; }
+.barras .barra span { font-size: 10px; color: var(--apagado); font-weight: 700; }
+.venta-anulada .nombre, .venta-anulada .precio { text-decoration: line-through; color: var(--apagado); }
+.items-venta { font-size: 13px; color: var(--apagado); padding: 0 16px 12px; margin-top: -6px; }
+.saldo-deuda { color: var(--error); font-weight: 800; }
+.saldo-ok { color: var(--ok); font-weight: 800; }
 
 /* ---------- modal ---------- */
 .modal-fondo {
