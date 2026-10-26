@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
 import { traerTodo, mensajeError } from '../lib/datos.js'
-import { METODOS, aNumero, hora, hoyTexto, nombreMetodo, pesos, rangoDia } from '../lib/formato.js'
+import { METODOS, aNumero, hora, hoyTexto, nombreCliente, nombreMetodo, pesos, rangoDia } from '../lib/formato.js'
 import { useAviso } from '../components/Toast.jsx'
 import { usePerfil } from '../components/Perfil.jsx'
 import FiltroPersona from '../components/FiltroPersona.jsx'
@@ -23,7 +23,7 @@ export default function Ventas() {
       const [desde, hasta] = rangoDia(dia)
       const [v, c, f] = await Promise.all([
         traerTodo(() => supabase.from('ventas')
-          .select('*, clientes(nombre), venta_items(nombre, cantidad, precio_unitario, subtotal)')
+          .select('*, clientes(nombre, apellido, apodo, dni), venta_items(nombre, cantidad, precio_unitario, subtotal)')
           .gte('fecha', desde).lt('fecha', hasta).order('fecha', { ascending: false })),
         supabase.from('cierres_caja').select('*').eq('dia', dia).order('creado_en', { ascending: false }),
         supabase.from('fiado_movimientos').select('monto, usuario_id').eq('tipo', 'pago').gte('fecha', desde).lt('fecha', hasta)
@@ -140,7 +140,7 @@ export default function Ventas() {
               <span className="col">
                 <span className="nombre">{hora(v.fecha)} · {nombreDe(v.usuario_id)}</span>
                 <span className="detalle">
-                  {nombreMetodo(v.metodo_pago)}{v.clientes ? ` (${v.clientes.nombre})` : ''} · {v.venta_items.length} {v.venta_items.length === 1 ? 'ítem' : 'ítems'}
+                  {nombreMetodo(v.metodo_pago)}{v.clientes ? ` · ${nombreCliente(v.clientes)}` : ''} · {v.venta_items.length} {v.venta_items.length === 1 ? 'ítem' : 'ítems'}
                   {v.anulada && ` · ANULADA${v.motivo_anulacion ? `: ${v.motivo_anulacion}` : ''}`}
                 </span>
               </span>

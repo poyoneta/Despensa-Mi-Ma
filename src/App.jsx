@@ -13,6 +13,7 @@ import Proveedores from './pages/Proveedores.jsx'
 import Pedido from './pages/Pedido.jsx'
 import Fiado from './pages/Fiado.jsx'
 import Reportes from './pages/Reportes.jsx'
+import MercadoPago from './pages/MercadoPago.jsx'
 
 export default function App() {
   const [sesion, setSesion] = useState(undefined) // undefined = todavía cargando
@@ -51,6 +52,7 @@ export default function App() {
             <Route path="/pedido/:id" element={<Pedido />} />
             <Route path="/fiado" element={<Fiado />} />
             <Route path="/reportes" element={<Reportes />} />
+            <Route path="/mercadopago" element={<MercadoPago />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Layout>

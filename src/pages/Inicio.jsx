@@ -64,7 +64,7 @@ export default function Inicio() {
     cargar()
   }, [])
 
-  const metodosVisibles = datos ? METODOS.filter(m => m.id !== 'fiado' || datos.porMetodo.fiado > 0) : []
+  const metodosVisibles = datos ? METODOS.filter(m => !['fiado', 'mercadopago'].includes(m.id) || datos.porMetodo[m.id] > 0) : []
 
   return (
     <div className="pagina">
@@ -87,7 +87,7 @@ export default function Inicio() {
                 <span className="monto">{pesos(datos.total)}</span>
                 <span className="chico">{datos.cantidadVentas} {datos.cantidadVentas === 1 ? 'venta' : 'ventas'}</span>
               </div>
-              <div className="metodos" style={{ gridTemplateColumns: `repeat(${metodosVisibles.length}, minmax(0, 1fr))` }}>
+              <div className="metodos" style={{ gridTemplateColumns: `repeat(${Math.min(metodosVisibles.length, 3)}, minmax(0, 1fr))` }}>
                 {metodosVisibles.map(m => (
                   <div key={m.id}><span>{m.corto}</span><span>{pesos(datos.porMetodo[m.id])}</span></div>
                 ))}

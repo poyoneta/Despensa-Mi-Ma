@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '../lib/supabase.js'
-import { traerClientes, traerProductos, mensajeError } from '../lib/datos.js'
-import { METODOS, aNumero, normalizar, pesos } from '../lib/formato.js'
+import { traerProductos, mensajeError } from '../lib/datos.js'
+import { METODOS, aNumero, nombreCliente, normalizar, pesos } from '../lib/formato.js'
 import { useAviso } from '../components/Toast.jsx'
 import { usePerfil } from '../components/Perfil.jsx'
 import Modal from '../components/Modal.jsx'
 import Escaner from '../components/Escaner.jsx'
+import CobroQR from '../components/CobroQR.jsx'
+import { ElegirCliente } from '../components/Clientes.jsx'
 import { IconoBuscar, IconoEscanear, IconoRayo } from '../components/Iconos.jsx'
 
 let contadorVarios = 0
@@ -23,6 +25,8 @@ export default function Caja() {
   const [varios, setVarios] = useState(false)
   const [camara, setCamara] = useState(false)
   const [cobrando, setCobrando] = useState(false)
+  const [qr, setQr] = useState(false)
+  const [qrPendiente, setQrPendiente] = useState(null) // QR pagado cuya venta no se pudo guardar
   const inputRef = useRef()
 
   async function cargar() {
@@ -91,29 +95,43 @@ export default function Caja() {
   const total = carrito.reduce((s, i) => s + i.precio * i.cantidad, 0)
   const unidades = carrito.reduce((s, i) => s + i.cantidad, 0)
 
-  async function cobrar() {
-    if (carrito.length === 0) return
-    if (metodo === 'fiado' && !cliente) { setElegirCliente(true); return }
+  async function registrar(mpRef = null) {
     setCobrando(true)
     const { error } = await supabase.rpc('registrar_venta', {
       p_metodo: metodo,
-      p_cliente_id: metodo === 'fiado' ? cliente.id : null,
+      p_cliente_id: cliente ? cliente.id : null,
+      p_mp_ref: mpRef,
       p_items: carrito.map(i => (i.productoId
         ? { producto_id: i.productoId, cantidad: i.cantidad }
         : { producto_id: null, nombre: i.nombre, precio: i.precio, cantidad: i.cantidad }))
     })
     setCobrando(false)
-    if (error) { aviso(mensajeError(error), 'error'); return }
-    aviso(metodo === 'fiado' ? `Anotado en el fiado de ${cliente.nombre}: ${pesos(total)}` : `Venta registrada: ${pesos(total)}`, 'ok')
+    if (error) {
+      aviso(mensajeError(error), 'error')
+      if (mpRef) setQrPendiente(mpRef)
+      return
+    }
+    aviso(metodo === 'fiado' ? `Anotado en el fiado de ${nombreCliente(cliente)}: ${pesos(total)}` : `Venta registrada: ${pesos(total)}`, 'ok')
     setCarrito([])
     setMetodo('efectivo')
     setCliente(null)
+    setQrPendiente(null)
     cargar() // refresca el stock
     inputRef.current?.focus()
   }
 
+  function cobrar() {
+    if (carrito.length === 0) return
+    if (metodo === 'fiado' && !cliente) { setElegirCliente(true); return }
+    if (qrPendiente) { registrar(qrPendiente); return }
+    if (metodo === 'mercadopago') { setQr(true); return }
+    registrar()
+  }
+
   function cancelar() {
-    if (carrito.length && !confirm('¿Borrar la venta actual?')) return
+    if (qrPendiente && !confirm('Este QR YA SE COBRÓ. Si cancelás, la venta no queda registrada. ¿Cancelar igual?')) return
+    if (!qrPendiente && carrito.length && !confirm('¿Borrar la venta actual?')) return
+    setQrPendiente(null)
     setCarrito([])
     setCliente(null)
     setMetodo('efectivo')
@@ -211,14 +229,22 @@ export default function Caja() {
             <div className="pago pago-4" role="group" aria-label="Forma de pago">
               {METODOS.map(m => (
                 <button key={m.id} className={metodo === m.id ? 'activo' : ''} aria-pressed={metodo === m.id}
-                  onClick={() => elegirMetodo(m.id)}>{m.corto}</button>
+                  disabled={Boolean(qrPendiente)} onClick={() => elegirMetodo(m.id)}>{m.corto}</button>
               ))}
             </div>
-            {metodo === 'fiado' && (
-              <div className="tarjeta tarjeta-pad" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-                <span>{cliente ? <>Se anota a <strong>{cliente.nombre}</strong></> : 'Elegí a quién se le fía'}</span>
+            <div className="tarjeta tarjeta-pad" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <span>
+                {cliente
+                  ? <>Cliente: <strong>{nombreCliente(cliente)}</strong></>
+                  : metodo === 'fiado' ? <strong>Elegí a quién se le fía</strong> : <span style={{ color: 'var(--apagado)' }}>Cliente (opcional)</span>}
+              </span>
+              <span style={{ display: 'flex', gap: 6 }}>
+                {cliente && <button className="btn btn-chico" onClick={() => setCliente(null)}>Quitar</button>}
                 <button className="btn btn-chico" onClick={() => setElegirCliente(true)}>{cliente ? 'Cambiar' : 'Elegir'}</button>
-              </div>
+              </span>
+            </div>
+            {qrPendiente && (
+              <div className="error-txt">El QR ya se cobró pero la venta no se guardó. Tocá “Guardar venta” para reintentar.</div>
             )}
           </div>
 
@@ -230,7 +256,7 @@ export default function Caja() {
               </div>
               <button className="btn btn-primario" style={{ height: 56, padding: '0 28px', fontSize: 17 }}
                 disabled={carrito.length === 0 || cobrando} onClick={cobrar}>
-                {cobrando ? 'Cobrando…' : metodo === 'fiado' ? 'Anotar' : 'Cobrar'}
+                {cobrando ? 'Cobrando…' : qrPendiente ? 'Guardar venta' : metodo === 'fiado' ? 'Anotar' : metodo === 'mercadopago' ? 'Mostrar QR' : 'Cobrar'}
               </button>
             </div>
             {carrito.length > 0 && (
@@ -243,8 +269,17 @@ export default function Caja() {
       {varios && <PrecioLibre onCerrar={() => setVarios(false)} onAgregar={it => { agregarVarios(it); setVarios(false) }} />}
       {elegirCliente && (
         <ElegirCliente
-          onCerrar={() => { setElegirCliente(false); if (!cliente) setMetodo('efectivo') }}
-          onElegir={c => { setCliente(c); setMetodo('fiado'); setElegirCliente(false) }}
+          titulo={metodo === 'fiado' ? '¿A quién se le fía?' : '¿Quién compra?'}
+          onCerrar={() => { setElegirCliente(false); if (!cliente && metodo === 'fiado') setMetodo('efectivo') }}
+          onElegir={c => { setCliente(c); setElegirCliente(false) }}
+        />
+      )}
+      {qr && (
+        <CobroQR
+          monto={total}
+          descripcion={`Despensa Mi-Ma · ${unidades} ${unidades === 1 ? 'producto' : 'productos'}`}
+          onCerrar={() => setQr(false)}
+          onPagado={ref => { setQr(false); registrar(ref) }}
         />
       )}
     </div>
@@ -285,47 +320,6 @@ function PrecioLibre({ onCerrar, onAgregar }) {
           <button className="btn btn-primario">Agregar</button>
         </div>
       </form>
-    </Modal>
-  )
-}
-
-function ElegirCliente({ onCerrar, onElegir }) {
-  const aviso = useAviso()
-  const [clientes, setClientes] = useState(null)
-  const [busqueda, setBusqueda] = useState('')
-
-  useEffect(() => {
-    traerClientes().then(setClientes).catch(e => { aviso(mensajeError(e), 'error'); setClientes([]) })
-  }, [])
-
-  const q = normalizar(busqueda.trim())
-  const lista = (clientes || []).filter(c => !q || normalizar(c.nombre).includes(q))
-
-  async function crear() {
-    const nombre = busqueda.trim()
-    if (!nombre) return
-    const { data, error } = await supabase.from('clientes').insert({ nombre }).select().single()
-    if (error) { aviso(mensajeError(error), 'error'); return }
-    onElegir(data)
-  }
-
-  return (
-    <Modal titulo="¿A quién se le fía?" onCerrar={onCerrar}>
-      <input className="input" autoFocus placeholder="Buscar o escribir un nombre nuevo" aria-label="Buscar cliente"
-        value={busqueda} onChange={e => setBusqueda(e.target.value)} />
-      <div className="tarjeta lista" style={{ maxHeight: 340, overflowY: 'auto' }}>
-        {!clientes && <div className="cargando">Cargando…</div>}
-        {lista.map(c => (
-          <button className="fila" key={c.id} onClick={() => onElegir(c)}>
-            <span className="nombre">{c.nombre}</span>
-            <span className={Number(c.saldo) > 0 ? 'saldo-deuda' : 'saldo-ok'}>Debe {pesos(c.saldo)}</span>
-          </button>
-        ))}
-        {clientes && lista.length === 0 && !busqueda.trim() && <div className="vacio">Todavía no hay clientes. Escribí un nombre para crear uno.</div>}
-      </div>
-      {busqueda.trim() && !lista.some(c => normalizar(c.nombre) === q) && (
-        <button className="btn btn-primario" onClick={crear}>Crear cliente “{busqueda.trim()}”</button>
-      )}
     </Modal>
   )
 }

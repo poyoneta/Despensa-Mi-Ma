@@ -30,4 +30,5 @@ export const IconoGrafico = p => <Svg {...p}><path d="M4 20V10" /><path d="M10 2
 export const IconoMenu = p => <Svg {...p}><circle cx="5" cy="12" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="19" cy="12" r="1.5" /></Svg>
 export const IconoRayo = p => <Svg {...p}><path d="M13 2L4 14h7l-1 8 9-12h-7z" /></Svg>
 export const IconoArchivo = p => <Svg {...p}><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><path d="M14 3v6h6" /><path d="M12 18v-6" /><path d="M9 15l3 3 3-3" /></Svg>
+export const IconoQR = p => <Svg {...p}><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><path d="M14 14h3v3h-3z" /><path d="M20 14v.01" /><path d="M14 20h.01" /><path d="M17 20h4v-3" /></Svg>
 export const IconoBuscar = p => <Svg {...p}><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></Svg>

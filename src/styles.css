@@ -264,7 +264,7 @@ button.fila:hover { background: #FAFAFB; }
 .tile:hover { border-color: var(--primario); }
 .tile .nombre { font-size: 14px; font-weight: 700; line-height: 1.2; }
 .tile.varios { border-style: dashed; border-color: var(--primario); color: var(--primario); }
-.pago-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.pago-4 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .pago-4 button { font-size: 14px; }
 
 /* ---------- ventas / reportes ---------- */

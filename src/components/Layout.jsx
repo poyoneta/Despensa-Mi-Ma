@@ -5,7 +5,7 @@ import { usePerfil } from './Perfil.jsx'
 import Modal from './Modal.jsx'
 import {
   IconoInicio, IconoCaja, IconoStock, IconoCamion, IconoSalir,
-  IconoRecibo, IconoLibreta, IconoGrafico, IconoMenu
+  IconoRecibo, IconoLibreta, IconoGrafico, IconoMenu, IconoQR
 } from './Iconos.jsx'
 
 const SECCIONES = [
@@ -14,7 +14,8 @@ const SECCIONES = [
   { a: '/ventas', nombre: 'Ventas', Icono: IconoRecibo },
   { a: '/stock', nombre: 'Stock', Icono: IconoStock },
   { a: '/proveedores', nombre: 'Proveedores', Icono: IconoCamion },
-  { a: '/fiado', nombre: 'Fiado', Icono: IconoLibreta },
+  { a: '/fiado', nombre: 'Clientes', Icono: IconoLibreta },
+  { a: '/mercadopago', nombre: 'Mercado Pago', Icono: IconoQR },
   { a: '/reportes', nombre: 'Reportes', Icono: IconoGrafico }
 ]
 const EN_BARRA = SECCIONES.slice(0, 4)        // las que se ven abajo en el celular

@@ -4,8 +4,20 @@ export const METODOS = [
   { id: 'efectivo', nombre: 'Efectivo', corto: 'Efectivo' },
   { id: 'transferencia', nombre: 'Transferencia', corto: 'Transfer.' },
   { id: 'debito', nombre: 'Débito', corto: 'Débito' },
-  { id: 'fiado', nombre: 'Fiado', corto: 'Fiado' }
+  { id: 'fiado', nombre: 'Fiado', corto: 'Fiado' },
+  { id: 'mercadopago', nombre: 'QR Mercado Pago', corto: 'QR MP' }
 ]
+
+// "Rosa Pérez (Doña Rosa)"
+export function nombreCliente(c) {
+  if (!c) return ''
+  const base = [c.nombre, c.apellido].filter(Boolean).join(' ')
+  return c.apodo ? `${base} (${c.apodo})` : base
+}
+
+export function textoBusquedaCliente(c) {
+  return normalizar([c.nombre, c.apellido, c.apodo, c.dni, c.telefono].filter(Boolean).join(' '))
+}
 export const nombreMetodo = id => METODOS.find(m => m.id === id)?.nombre || id
 
 // $ 1.234,50

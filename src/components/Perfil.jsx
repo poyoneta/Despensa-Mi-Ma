@@ -57,15 +57,14 @@ function ElegirNombre({ usuario, onListo }) {
   return (
     <div className="login">
       <form className="caja-login" onSubmit={e => { e.preventDefault(); guardar(nombre) }}>
-        <h2>¿Quién sos?</h2>
-        <p style={{ margin: 0, color: 'var(--apagado)' }}>Así cada venta queda guardada a tu nombre. Se pregunta una sola vez.</p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-          <button type="button" className="btn btn-grande" onClick={() => guardar('Mateo')}>Mateo</button>
-          <button type="button" className="btn btn-grande" onClick={() => guardar('Mika')}>Mika</button>
-        </div>
+        <h2>¿Cómo te llamás?</h2>
+        <p style={{ margin: 0, color: 'var(--apagado)' }}>
+          Es la primera vez que entrás con <strong>{usuario.email}</strong>. Este nombre queda fijo para este usuario
+          y todas sus ventas se guardan a ese nombre.
+        </p>
         <div className="campo">
-          <label htmlFor="otro-nombre">O escribí otro nombre</label>
-          <input id="otro-nombre" className="input" value={nombre} onChange={e => setNombre(e.target.value)} />
+          <label htmlFor="otro-nombre">Tu nombre</label>
+          <input id="otro-nombre" className="input" autoFocus value={nombre} onChange={e => setNombre(e.target.value)} />
         </div>
         {error && <div className="error-txt">{error}</div>}
         <button className="btn btn-primario" disabled={!nombre.trim()}>Guardar</button>

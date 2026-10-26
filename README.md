@@ -10,6 +10,8 @@ Web para manejar la despensa desde el celular o la computadora:
 - **Ventas**: historial por día, quién vendió cada cosa, **anular una venta** (devuelve el stock) y **cerrar caja** (cuánta plata tiene que haber y si sobra o falta).
 - **Fiado**: libreta de clientes con lo que deben, lo que llevaron y lo que pagaron. Se anota solo al cobrar "Fiado" en la caja.
 - **Reportes**: ventas por período, por día, por forma de pago, productos más vendidos y ganancia aproximada.
+- **Mercado Pago**: cobro con QR desde la caja (se registra solo) y lista de cobros y transferencias que entran a la cuenta.
+- **Clientes**: nombre, apellido, apodo, DNI y WhatsApp, en cualquier venta.
 - **Mateo y Mika**: cada uno entra con su usuario y todo queda a su nombre. En Inicio, Ventas, Cierre y Reportes se ve **cada uno por separado y los dos juntos**.
 
 Se puede **instalar como app** en el celular: desde Chrome, menú ⋮ → "Agregar a pantalla de inicio".
@@ -38,6 +40,52 @@ git push
 ```
 
 > Las ventas que hiciste antes de esta actualización aparecen como "Sin nombre" en los resúmenes, porque todavía no existían los perfiles.
+
+---
+
+## Actualización 3 · Mercado Pago y datos de clientes
+
+Qué agrega:
+- En la **caja**, la forma de pago **"QR MP"**: aparece un QR con el monto exacto, el cliente lo escanea y la venta se registra sola cuando paga.
+- Sección **Mercado Pago**: trae lo que entró a la cuenta (QR y transferencias por alias/CVU) para registrarlo como venta o unirlo a una venta que ya cargaron.
+- **Cliente en cualquier venta** (no solo fiado): nombre, apellido, apodo, DNI y WhatsApp. Todo opcional.
+
+### 1. Código y base de datos
+1. Copiá los archivos nuevos encima de tu proyecto (sin borrar `.env` ni `node_modules`).
+2. Supabase → **SQL Editor** → pegá `supabase/actualizacion-03.sql` → **Run**.
+3. Terminal: `npm install` (hay una librería nueva para dibujar el QR) y `npm run dev`.
+
+### 2. Sacar el Access Token de Mercado Pago (para probar, con TU cuenta)
+1. Entrá a **mercadopago.com.ar/developers** con tu cuenta de Mercado Pago → **Tus integraciones → Crear aplicación**.
+2. Nombre: `Despensa Mi-Ma`. Cuando pregunte qué vas a integrar, elegí **pagos presenciales / Código QR**.
+3. Entrá a la aplicación → **Credenciales de producción**. Si te pide activarlas, completá rubro y sitio web (podés poner la dirección de Render).
+4. Copiá el **Access Token** (empieza con `APP_USR-...`). **Es secreto**: no lo pongas en el `.env`, ni en GitHub, ni lo mandes por chat.
+
+### 3. Publicar la función en Supabase
+La web no puede tener el token (cualquiera lo vería), así que lo guarda una función de Supabase que es la única que habla con Mercado Pago.
+
+1. Supabase → **Edge Functions** → **Deploy a new function** → **Via Editor**.
+2. Nombre: exactamente `mercadopago`.
+3. Borrá el código de ejemplo, pegá todo `supabase/functions/mercadopago/index.ts` y tocá **Deploy**.
+4. Supabase → **Edge Functions → Secrets** → **Add new secret**: nombre `MP_ACCESS_TOKEN`, valor: el Access Token. Guardá.
+
+> Con la terminal también se puede: `npx supabase login`, `npx supabase link`, `npx supabase functions deploy mercadopago` y `npx supabase secrets set MP_ACCESS_TOKEN=APP_USR-...`.
+
+### 4. Crear la caja y probar
+1. En la app → **Mercado Pago**. Tiene que decir "Conectado a la cuenta de (tu nombre)".
+2. Completá la dirección del local (el botón "Usar mi ubicación" llena latitud y longitud) → **Crear caja**.
+3. Andá a la **Caja**, agregá algo barato (por ejemplo "Varios" $10), elegí **QR MP** → **Mostrar QR**.
+4. Pagalo **desde otra cuenta** de Mercado Pago o desde la app de un banco (no podés pagarte a vos mismo). En unos segundos dice "¡Pagado!" y la venta queda registrada.
+5. Mandate una transferencia a tu alias, andá a **Mercado Pago → Actualizar** y fijate que aparezca.
+
+### 5. Pasar a la cuenta de Mika
+1. Mika hace el paso 2 con **su** cuenta y te pasa el Access Token (en persona o que lo cargue ella).
+2. En Supabase → **Edge Functions → Secrets**, editá `MP_ACCESS_TOKEN` y poné el de Mika.
+3. En la app → **Mercado Pago** → completar la dirección → **Crear caja** (cada cuenta tiene su propia caja).
+
+No hay que cambiar nada del código ni volver a publicar en Render.
+
+> **Datos de clientes:** el DNI y el teléfono son opcionales. Guarden solo lo que necesitan (por ejemplo, para el fiado) y no compartan esa información con nadie.
 
 Tecnologías: React + Vite, Supabase (base de datos y login), Render (hosting).
 
