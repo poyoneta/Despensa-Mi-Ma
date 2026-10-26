@@ -128,7 +128,26 @@ function Configuracion({ config, onCambio }) {
   const aviso = useAviso()
   const [f, setF] = useState({ nombre: 'Despensa Mi-Ma', calle: '', numero: '', ciudad: '', provincia: 'Córdoba', latitud: '', longitud: '' })
   const [enviando, setEnviando] = useState(false)
+  const [listas, setListas] = useState({ provincias: [], ciudades: [], cargando: false })
   const cambiar = c => e => setF(v => ({ ...v, [c]: e.target.value }))
+  const necesitaCaja = Boolean(config?.token && !config?.caja)
+
+  // trae las provincias y ciudades con los nombres que acepta Mercado Pago
+  useEffect(() => {
+    if (!necesitaCaja || !f.provincia) return
+    let vivo = true
+    setListas(l => ({ ...l, cargando: true }))
+    mercadoPago('ciudades', { provincia: f.provincia })
+      .then(r => {
+        if (!vivo) return
+        setListas({ provincias: r.provincias || [], ciudades: r.ciudades || [], cargando: false })
+        if (r.provincia && r.provincia !== f.provincia) setF(v => ({ ...v, provincia: r.provincia }))
+      })
+      .catch(() => vivo && setListas(l => ({ ...l, cargando: false })))
+    return () => { vivo = false }
+  }, [necesitaCaja, f.provincia])
+
+  const ciudadValida = listas.ciudades.length === 0 || listas.ciudades.includes(f.ciudad)
 
   function ubicacion() {
     if (!navigator.geolocation) { aviso('Este navegador no da la ubicación', 'error'); return }
@@ -140,6 +159,7 @@ function Configuracion({ config, onCambio }) {
 
   async function configurar(e) {
     e.preventDefault()
+    if (!ciudadValida) { aviso('Elegí la ciudad de la lista (Mercado Pago solo acepta esos nombres)', 'error'); return }
     setEnviando(true)
     try {
       await mercadoPago('configurar', f)
@@ -179,8 +199,30 @@ function Configuracion({ config, onCambio }) {
         <div className="campo ancho"><label htmlFor="mp-nombre">Nombre del local</label><input id="mp-nombre" className="input" required value={f.nombre} onChange={cambiar('nombre')} /></div>
         <div className="campo"><label htmlFor="mp-calle">Calle</label><input id="mp-calle" className="input" required value={f.calle} onChange={cambiar('calle')} /></div>
         <div className="campo"><label htmlFor="mp-num">Número</label><input id="mp-num" className="input" required inputMode="numeric" value={f.numero} onChange={cambiar('numero')} /></div>
-        <div className="campo"><label htmlFor="mp-ciudad">Ciudad</label><input id="mp-ciudad" className="input" required value={f.ciudad} onChange={cambiar('ciudad')} /></div>
-        <div className="campo"><label htmlFor="mp-prov">Provincia</label><input id="mp-prov" className="input" required value={f.provincia} onChange={cambiar('provincia')} /></div>
+        <div className="campo">
+          <label htmlFor="mp-prov">Provincia</label>
+          {listas.provincias.length > 0 ? (
+            <select id="mp-prov" className="input" required value={f.provincia} onChange={e => setF(v => ({ ...v, provincia: e.target.value, ciudad: '' }))}>
+              {!listas.provincias.includes(f.provincia) && <option value={f.provincia}>{f.provincia}</option>}
+              {listas.provincias.map(pr => <option key={pr} value={pr}>{pr}</option>)}
+            </select>
+          ) : (
+            <input id="mp-prov" className="input" required value={f.provincia} onChange={cambiar('provincia')} />
+          )}
+        </div>
+        <div className="campo">
+          <label htmlFor="mp-ciudad">Ciudad {listas.cargando ? '(cargando lista…)' : listas.ciudades.length ? '(escribí y elegí de la lista)' : ''}</label>
+          <input id="mp-ciudad" className="input" required list="mp-ciudades" autoComplete="off" value={f.ciudad} onChange={cambiar('ciudad')}
+            style={!ciudadValida && f.ciudad ? { borderColor: 'var(--error)' } : undefined} />
+          <datalist id="mp-ciudades">
+            {listas.ciudades.map(c => <option key={c} value={c} />)}
+          </datalist>
+          {!ciudadValida && f.ciudad && (
+            <span style={{ fontSize: 13, color: 'var(--error)', fontWeight: 600 }}>
+              No está en la lista de Mercado Pago. Si tu pueblo no aparece, elegí la ciudad más cercana o la cabecera del departamento.
+            </span>
+          )}
+        </div>
         <div className="campo"><label htmlFor="mp-lat">Latitud</label><input id="mp-lat" className="input" required inputMode="decimal" value={f.latitud} onChange={cambiar('latitud')} /></div>
         <div className="campo"><label htmlFor="mp-lng">Longitud</label><input id="mp-lng" className="input" required inputMode="decimal" value={f.longitud} onChange={cambiar('longitud')} /></div>
         <div className="acciones ancho" style={{ justifyContent: 'space-between' }}>
