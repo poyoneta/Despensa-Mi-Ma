@@ -26,6 +26,29 @@ export async function mercadoPago(accion, datos = {}) {
   return data
 }
 
+const esperar = ms => new Promise(r => setTimeout(r, ms))
+
+// Después de cobrar un QR: averigua quién pagó y devuelve su cliente (lo crea si no existe).
+// Si Mercado Pago no informa datos, devuelve null y la venta queda sin cliente.
+export async function clienteDesdeQR(referencia) {
+  try {
+    let pagador = null
+    // el pago puede tardar unos segundos en aparecer en la búsqueda
+    for (let intento = 0; intento < 4 && !pagador; intento++) {
+      if (intento) await esperar(2500)
+      const r = await mercadoPago('pagador_qr', { referencia })
+      if (r.encontrado) pagador = r
+    }
+    if (!pagador || (!pagador.nombre && !pagador.doc)) return null
+    const { data: id, error } = await supabase.rpc('cliente_desde_pagador', { p_nombre: pagador.nombre, p_doc: pagador.doc })
+    if (error || !id) return null
+    const { data: cliente } = await supabase.from('clientes').select('*').eq('id', id).single()
+    return cliente || null
+  } catch {
+    return null
+  }
+}
+
 export const TIPOS_MP = {
   account_money: 'Dinero en cuenta',
   bank_transfer: 'Transferencia',

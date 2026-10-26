@@ -206,6 +206,20 @@ Deno.serve(async (req) => {
         return respuesta({ estado: o.status, detalle: o.status_detail })
       }
 
+      // Quién pagó un QR (busca el pago por la referencia que le pusimos al QR)
+      case 'pagador_qr': {
+        const r = await mp(`/v1/payments/search?external_reference=${encodeURIComponent(p.referencia)}&sort=date_created&criteria=desc&limit=5`)
+        const pago = (r?.results ?? []).find((x: any) => x.status === 'approved') ?? r?.results?.[0]
+        if (!pago) return respuesta({ encontrado: false })
+        return respuesta({
+          encontrado: true,
+          pago_id: String(pago.id),
+          nombre: [pago.payer?.first_name, pago.payer?.last_name].filter(Boolean).join(' ') || null,
+          doc: pago.payer?.identification?.number || null,
+          email: pago.payer?.email || null
+        })
+      }
+
       case 'cancelar_qr': {
         try {
           await mp(`/v1/orders/${encodeURIComponent(p.id)}/cancel`, { method: 'POST', idem: true })
@@ -249,7 +263,9 @@ Deno.serve(async (req) => {
           if (error) throw new Error(error.message)
         }
         const { data: vinculados } = await sb.rpc('vincular_cobros_qr')
-        return respuesta({ cantidad: filas.length, vinculados: vinculados ?? 0 })
+        // completa el cliente de las ventas de Mercado Pago que quedaron sin cliente
+        const { data: conCliente } = await sb.rpc('asignar_clientes_desde_cobros')
+        return respuesta({ cantidad: filas.length, vinculados: vinculados ?? 0, clientes: conCliente ?? 0 })
       }
 
       default:

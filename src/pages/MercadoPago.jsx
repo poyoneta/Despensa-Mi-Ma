@@ -32,7 +32,7 @@ export default function MercadoPago() {
     setSincronizando(true)
     try {
       const r = await mercadoPago('sincronizar', { dias })
-      if (!silencioso) aviso(`Listo: ${r.cantidad} cobros revisados${r.vinculados ? `, ${r.vinculados} unidos a ventas del QR` : ''}`, 'ok')
+      if (!silencioso) aviso(`Listo: ${r.cantidad} cobros revisados${r.vinculados ? `, ${r.vinculados} unidos a ventas del QR` : ''}${r.clientes ? `, ${r.clientes} con cliente nuevo` : ''}`, 'ok')
       await cargarCobros()
     } catch (e) {
       if (!silencioso) aviso(e.message, 'error')

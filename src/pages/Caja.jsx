@@ -8,6 +8,7 @@ import Modal from '../components/Modal.jsx'
 import Escaner from '../components/Escaner.jsx'
 import CobroQR from '../components/CobroQR.jsx'
 import { ElegirCliente } from '../components/Clientes.jsx'
+import { clienteDesdeQR } from '../lib/mercadopago.js'
 import { IconoBuscar, IconoEscanear, IconoRayo } from '../components/Iconos.jsx'
 
 let contadorVarios = 0
@@ -95,11 +96,13 @@ export default function Caja() {
   const total = carrito.reduce((s, i) => s + i.precio * i.cantidad, 0)
   const unidades = carrito.reduce((s, i) => s + i.cantidad, 0)
 
-  async function registrar(mpRef = null) {
+  // clienteQR: cliente que se sacó automáticamente de quien pagó el QR
+  async function registrar(mpRef = null, clienteQR = null) {
     setCobrando(true)
+    const quien = cliente || clienteQR
     const { error } = await supabase.rpc('registrar_venta', {
       p_metodo: metodo,
-      p_cliente_id: cliente ? cliente.id : null,
+      p_cliente_id: quien ? quien.id : null,
       p_mp_ref: mpRef,
       p_items: carrito.map(i => (i.productoId
         ? { producto_id: i.productoId, cantidad: i.cantidad }
@@ -111,7 +114,9 @@ export default function Caja() {
       if (mpRef) setQrPendiente(mpRef)
       return
     }
-    aviso(metodo === 'fiado' ? `Anotado en el fiado de ${nombreCliente(cliente)}: ${pesos(total)}` : `Venta registrada: ${pesos(total)}`, 'ok')
+    aviso(metodo === 'fiado'
+      ? `Anotado en el fiado de ${nombreCliente(cliente)}: ${pesos(total)}`
+      : `Venta registrada: ${pesos(total)}${quien ? ` · ${nombreCliente(quien)}` : ''}`, 'ok')
     setCarrito([])
     setMetodo('efectivo')
     setCliente(null)
@@ -279,7 +284,12 @@ export default function Caja() {
           monto={total}
           descripcion={`Despensa Mi-Ma · ${unidades} ${unidades === 1 ? 'producto' : 'productos'}`}
           onCerrar={() => setQr(false)}
-          onPagado={ref => { setQr(false); registrar(ref) }}
+          onPagado={async ref => {
+            // si no eligieron cliente, lo saca de los datos de quien pagó
+            const deQuienPago = cliente ? null : await clienteDesdeQR(ref)
+            setQr(false)
+            registrar(ref, deQuienPago)
+          }}
         />
       )}
     </div>
