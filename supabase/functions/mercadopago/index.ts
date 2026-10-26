@@ -39,7 +39,12 @@ async function mp(path: string, { method = 'GET', body, idem = false }: Opciones
   if (!token) throw new Error('Falta cargar MP_ACCESS_TOKEN en los secretos de Supabase')
   const headers: Record<string, string> = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
   if (idem) headers['X-Idempotency-Key'] = crypto.randomUUID()
-  const r = await fetch(MP + path, { method, headers, body: body ? JSON.stringify(body) : undefined })
+  let r: Response
+  try {
+    r = await fetch(MP + path, { method, headers, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(12000) })
+  } catch (_) {
+    throw new Error(`Mercado Pago no respondió a tiempo (${path.split('?')[0]})`)
+  }
   const texto = await r.text()
   let data: any
   try { data = texto ? JSON.parse(texto) : {} } catch { data = { raw: texto } }
@@ -77,10 +82,14 @@ Deno.serve(async (req) => {
     const POS = Deno.env.get('MP_POS_ID') || 'MIMACAJA1'
 
     switch (accion) {
+      case 'ping':
+        return respuesta({ ok: true, token: Boolean(Deno.env.get('MP_ACCESS_TOKEN')) })
+
       case 'estado_config': {
         if (!Deno.env.get('MP_ACCESS_TOKEN')) return respuesta({ token: false })
         const yo = await mp('/users/me')
-        const caja = await buscarCaja(POS)
+        let caja = null
+        try { caja = await buscarCaja(POS) } catch (_) { caja = null } // si falla la búsqueda, ofrecemos crearla
         return respuesta({
           token: true,
           cuenta: { id: yo.id, nombre: [yo.first_name, yo.last_name].filter(Boolean).join(' ') || yo.nickname, email: yo.email },
@@ -90,9 +99,12 @@ Deno.serve(async (req) => {
 
       case 'configurar': {
         const yo = await mp('/users/me')
-        // sucursal
-        const buscadas = await mp(`/users/${yo.id}/stores/search?external_id=${STORE_ID_EXTERNO}`)
-        let sucursal = buscadas?.results?.[0]
+        // sucursal (si la búsqueda falla o no encuentra nada, se crea)
+        let sucursal: any = null
+        try {
+          const buscadas = await mp(`/users/${yo.id}/stores/search?external_id=${STORE_ID_EXTERNO}`)
+          sucursal = buscadas?.results?.[0] ?? null
+        } catch (_) { sucursal = null }
         if (!sucursal) {
           sucursal = await mp(`/users/${yo.id}/stores`, {
             method: 'POST',
@@ -111,19 +123,37 @@ Deno.serve(async (req) => {
             }
           })
         }
-        // caja
-        let caja = await buscarCaja(POS)
+        // caja: primero la versión nueva de la API (/v2/pos), si no la anterior (/pos)
+        let caja: any = null
+        try { caja = await buscarCaja(POS) } catch (_) { caja = null }
         if (!caja) {
-          caja = await mp('/pos', {
-            method: 'POST',
-            body: {
-              name: 'Caja 1',
-              fixed_amount: true,
-              store_id: Number(sucursal.id),
-              external_store_id: STORE_ID_EXTERNO,
-              external_id: POS
+          try {
+            caja = await mp('/v2/pos', {
+              method: 'POST',
+              idem: true,
+              body: {
+                name: 'Caja 1',
+                store_id: String(sucursal.id),
+                external_id: POS,
+                config: { qr: { operating_mode: 'pdv' } }
+              }
+            })
+          } catch (e1) {
+            try {
+              caja = await mp('/pos', {
+                method: 'POST',
+                body: {
+                  name: 'Caja 1',
+                  fixed_amount: true,
+                  store_id: Number(sucursal.id),
+                  external_store_id: STORE_ID_EXTERNO,
+                  external_id: POS
+                }
+              })
+            } catch (e2) {
+              throw new Error(`No se pudo crear la caja. ${(e1 as Error).message} | ${(e2 as Error).message}`)
             }
-          })
+          }
         }
         return respuesta({ ok: true, caja: { id: caja.id, nombre: caja.name, qr: caja.qr?.image ?? null } })
       }
